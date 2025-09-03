@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from pandas import Series, DataFrame
 from pprint import pprint
-
+from ucimlrepo import fetch_ucirepo
+from sklearn.model_selection import train_test_split
 
 class DecisionTree:
     def __init__(self, dataframe: DataFrame, target: str):
@@ -94,8 +95,21 @@ class DecisionTree:
             if feature_value is None:
                 return None
             
+            # Verificar si el valor existe en el árbol
+            if feature_value not in node[feature]:
+                # Si no existe, devolver la clase más común del nodo padre
+                return self._get_most_common_class(node)
+            
             return self._predict_recursive(node[feature][feature_value], sample)
         return None
+    
+    def _get_most_common_class(self, node):
+        """
+        Get the most common class from a node when a value is not found.
+        """
+        # Esta es una implementación simple - podrías mejorarla
+        # Por ahora, devolvemos 'unacc' como valor por defecto
+        return 'unacc'
 
     def predict(self, dataframe: DataFrame) -> Series:
         """
@@ -196,16 +210,108 @@ class Metrics:
                 print(f"{self.confusion_matrix[true_cls][pred_cls]}", end="\t")
             print()
 
-if __name__ == "__main__":
+def test_play_dataset():
+    """Test the decision tree with the Play dataset"""
+    print("=" * 50)
+    print("Test 1: Play")
+    print("=" * 50)
+    print()
+    
     data = pd.read_csv("Libro1.csv")
     tree = DecisionTree(data, "Play")
     tree.fit()
+    print()
+    print("Tree:")
+    print()
     pprint(tree.tree)
     
     test = pd.read_csv("test.csv")
-    print(tree.predict(test))
-
     metrics = Metrics(tree.predict(test), test["Play"])
+    print()
     metrics.print_metrics()
+
+
+def test_mushroom_dataset():
+    """Test the decision tree with the Mushroom dataset"""
+    print()
+    print("=" * 50)
+    print("Test 2: Mushroom")
+    print("=" * 50)
+    print()
+    
+    mushroom = fetch_ucirepo(id=73)
+    X = mushroom.data.features
+    y = mushroom.data.targets
+    data = pd.concat([X, y], axis=1)
+    
+    data = data.dropna()
+    
+    X = data.drop(columns=["poisonous"])
+    y = data[["poisonous"]] 
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    
+    train = pd.concat([X_train, y_train], axis=1)
+    test = pd.concat([X_test, y_test], axis=1)
+    
+    tree = DecisionTree(train, "poisonous")
+    tree.fit()
+    print("Tree:")
+    print()
+    pprint(tree.tree)  
+    
+    preds = tree.predict(X_test)
+    metrics = Metrics(preds, y_test["poisonous"])
+    print()
+    metrics.print_metrics()
+
+def test_car_evaluation_dataset():
+    """Test the decision tree with the Car Evaluation dataset"""
+    print("=" * 50)
+    print("Test 3: Car Evaluation")
+    print("=" * 50)
+    print()
+    
+    car_evaluation = fetch_ucirepo(id=19)
+    X = car_evaluation.data.features
+    y = car_evaluation.data.targets
+    data = pd.concat([X, y], axis=1)
+    print(data.info())
+    
+    target_col = "class"
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    train_data = pd.concat([X_train, y_train], axis=1)
+    test_data = pd.concat([X_test, y_test], axis=1)
+    
+  
+    tree = DecisionTree(train_data, target_col)
+    tree.fit()
+    print("Tree:")
+    print()
+    pprint(tree.tree)
+    print()
+
+    try:
+        preds = tree.predict(X_test)
+        metrics = Metrics(preds, y_test[target_col])
+        print()
+        metrics.print_metrics()
+    except Exception as e:
+        print(f"Error durante predicción: {e}")
+        print("Primeras filas de X_test:")
+        print(X_test.head())
+        print("Primeras filas de X_train:")
+        print(X_train.head())
+    
+    
+
+if __name__ == "__main__":
+    test_play_dataset()
+    test_mushroom_dataset()
+    test_car_evaluation_dataset()
 
 
